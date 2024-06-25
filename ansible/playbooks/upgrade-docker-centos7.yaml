@@ -1,0 +1,67 @@
+---
+- name: Upgrade Docker on CentOS 7
+  hosts: zhisai
+  become: yes
+  tasks:
+    - name: Set HTTP proxy in /etc/environment
+      lineinfile:
+        path: /etc/environment
+        state: present
+        create: yes
+        line: '{{ item }}'
+      loop:
+        - 'http_proxy="http://172.17.93.75:10809"'
+        - 'https_proxy="http://172.17.93.75:10809"'
+
+    - name: Ensure proxy environment variables are loaded
+      shell: source /etc/environment    
+      
+    - name: Remove old Docker packages
+      yum:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - containerd.io
+        - docker-ce
+        - docker-ce-cli
+        - docker-ce-rootless-extras
+        - docker-scan-plugin
+        - docker
+        - docker-client
+        - docker-client-latest
+        - docker-common
+        - docker-latest
+        - docker-latest-logrotate
+        - docker-logrotate
+        - docker-engine
+
+    - name: Install required packages
+      yum:
+        name:
+          - yum-utils
+          - device-mapper-persistent-data
+          - lvm2
+        state: present
+
+    - name: Add Docker repository
+      yum_repository:
+        name: docker-ce
+        description: Docker CE Stable - $basearch
+        baseurl: https://download.docker.com/linux/centos/7/$basearch/stable
+        enabled: yes
+        gpgcheck: yes
+        gpgkey: https://download.docker.com/linux/centos/gpg
+
+    - name: Install the latest version of Docker
+      yum:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: latest
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
